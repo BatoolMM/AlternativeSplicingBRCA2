@@ -70,7 +70,7 @@ showtext_auto()
 ```{r renv, message=FALSE, warning=FALSE, include=FALSE}
 
 #initiate an environment for libs
-
+#renv::init()
 
 ```
 
