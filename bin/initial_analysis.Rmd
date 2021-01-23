@@ -56,7 +56,7 @@ bio_pkgs = c("BiocManager", "ggbio", "biomaRt", "EnsDb.Hsapiens.v75", "cBioPorta
     BiocManager::install(bio_pkgs)
 
 library(easypackages)
-libraries("ggbio", "biomaRt", "EnsDb.Hsapiens.v75", "cBioPortalData", "GenomicRanges", "GenomicFeatures", "TxDb.Hsapiens.UCSC.hg19.knownGene", "Homo.sapiens")
+libraries("ggbio", "biomaRt", "EnsDb.Hsapiens.v75", "renvcBioPortalData", "GenomicRanges", "GenomicFeatures", "TxDb.Hsapiens.UCSC.hg19.knownGene", "Homo.sapiens")
 
 # install and load CRAN packages
 if (!require("pacman")) install.packages("pacman")
@@ -102,25 +102,6 @@ Initially, we need to retrieve the unmber of exons for BRCA2 and their positions
 ```
 
 
-```{r pressure, echo=FALSE, message=FALSE, warning=FALSE}
-ensdb <- EnsDb.Hsapiens.v75
-  ggbio::autoplot(
-    ensdb,
-    GeneNameFilter("BRCA2"),
-    fill = "#56B4E9",
-    color = "black",
-    size = 0.1,
-    gap.geom = "segment"
-  ) +
-  theme_bw() +
-  theme(
-    panel.grid.major.y = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-    panel.border = element_blank()
-  )
-```
 
 
 ```{r echo=FALSE}
@@ -236,3 +217,135 @@ knitr::include_graphics("exons.jpg")
 ```
 
 
+
+```{r clean-exons_df, echo=FALSE, results='asis'}
+# 4- furtherclaening and presenting of the data
+cleaned_exon <- exon %>%
+  dplyr::select(c(
+    exon_region_start__bp_,
+    exon_region_end__bp_,
+    exon_rank,
+    exon_length
+  )) %>%
+  dplyr::rename(
+    'Start (bp)' = exon_region_start__bp_,
+    'End (bp)' = exon_region_end__bp_, 
+    Exon = exon_rank,
+    'Region Length' = exon_length
+  )
+cleaned_exon <- cleaned_exon[, c(3, 1, 2, 4)]
+cleaned_exon %>%
+  knitr::kable(caption = "The positions of the exons boundaries of BRCA2 in chromosome 13.")
+```
+
+\newpage
+
+# Integrate RNA-seq data from cBioPortal
+
+We integrated 240 studies from cBioPortal. The studies spans 91 cancer types which contain in total 116930 samples. The study with the most samples is Cancer Therapy and Clonal Hematopoiesis (MSK, Nat Genet 2020). In order to explore the top 20 studies according to the number of samples.
+
+```{r all-cbioportal, include=FALSE}
+cbio <- cBioPortal()
+studies <- getStudies(cbio)
+dim(studies)
+unique(studies$cancerTypeId)
+cat("Answer 1: There are", nrow(studies), "studies in cBioPortal")
+cat("Answer 2: The studies spans", length(unique(studies$cancerTypeId)), "cancer types")
+cat("Answer 3: There are ",
+    sum(studies$allSampleCount),
+    "samples in cBioPortal")
+cat("Answer 4: The study with the most samples is", studies[which.max(studies$allSampleCount), "name"][[1]])
+```
+
+
+```{r plot-all-studies, message=FALSE, fig.showtext=TRUE, warning=FALSE, include=FALSE}
+studies %>%
+  dplyr::filter(cancerTypeId != "mixed") %>%     # add filter for mixed type
+  dplyr::group_by(cancerTypeId) %>%
+  dplyr::summarise(totalSamples = sum(allSampleCount)) %>%
+  dplyr::arrange(desc(totalSamples)) %>%
+  top_n(20) %>%
+  mutate(cancerTypeId = toupper(cancerTypeId)) %>%
+  mutate(cancerTypeId = fct_reorder(cancerTypeId, totalSamples, .desc = FALSE))  %>%
+  ggplot2::ggplot(aes(x = cancerTypeId, y = totalSamples)) +
+  geom_col(aes(fill = ifelse(totalSamples > 4000, "red", "#56B4E9")), color = "black", size = 0.2) + 
+  scale_fill_identity() +
+  xlab(label = 'Cancer Type') +
+  ylab('Total Samples') +
+  ylim(0, 8000) +
+  scale_y_continuous(expand = expansion(mult = c(0, .1))) +
+  coord_flip() +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    panel.border = element_blank(),
+    text = element_text(color = "grey20"),
+    axis.text.x = element_text (size = 8),
+    axis.text.y = element_text(),
+    legend.title = element_blank(),
+    legend.position = "none"
+  )
+ggsave(here("docs/figs","cbioportal.jpg"))
+```
+
+```{r fig2, out.width="100%", echo=FALSE, fig.showtext=TRUE, fig.cap="\\label{fig:fig2}The top 20 studies in cBioPortal according to the number of samplse"}
+knitr::include_graphics(here("docs/figs","cbioportal.jpg"))
+```
+
+
+```{r clean-BRCA2-mutations, include=FALSE}
+df = as.data.frame(fread(here("data","alterations.tsv")))
+
+df <- df %>%
+  rename_all(
+    .funs = function(.x) {
+      .x %>% tolower() %>% str_replace_all(pattern = ",| ", replacement = "_")
+    }
+  ) %>%
+  separate(study, into = c("study", "ref"), sep = "\\s(?=\\()") %>%
+  separate(
+    annotation,
+    into = c(
+      "OncoKB",
+      "CIViC",
+      "MyCancerGenome",
+      "CancerHotspot",
+      "3DHotspot",
+      "MutationAssessor",
+      "SIFT",
+      "Polyphen"
+    ),
+    sep = ";"
+  ) %>%
+  separate(
+    functional_impact,
+    into = c("MutationAssessor",
+             "SIFT",
+             "Polyphen"),
+    sep = ";"
+  ) %>%
+  mutate(across(OncoKB:'3DHotspot',  ~ str_remove_all(., pattern = "\\w+:"))) %>%
+  mutate(across(
+    MutationAssessor:Polyphen,
+    ~ str_remove_all(., pattern = "\\w+:")
+  )) %>%
+  mutate(OncoKB = str_replace_all(OncoKB, pattern = "_", replacement = " ")) %>% 
+  dplyr::select(-sample_id, -cancer_type, -`copy_#`) %>% 
+  mutate(exon = str_remove_all(exon, pattern = "/\\d+"))
+df3 <- df %>%
+  dplyr::select(study, ref, mutation_type, exon) %>%
+  group_by(ref) %>%
+  summarise(
+    Frame_Shift_Del = sum(mutation_type == 'Frame_Shift_Del'),
+    Frame_Shift_Ins = sum(mutation_type == 'Frame_Shift_Ins'),
+    Nonsense_Mutation = sum(mutation_type == 'Nonsense_Mutation'),
+    Missense_Mutation = sum(mutation_type == 'Missense_Mutation'),
+    Splice_Site = sum(mutation_type == 'Splice_Site'),
+    Splice_Region = sum(mutation_type == 'Splice_Region'),
+    Fusion = sum(mutation_type == 'Fusion'),
+    In_Frame_Del = sum(mutation_type == 'In_Frame_Del'),
+    In_Frame_Ins = sum(mutation_type == 'In_Frame_Ins')
+  ) %>%
+  data_frame()
+`
+```
