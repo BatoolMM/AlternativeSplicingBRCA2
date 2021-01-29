@@ -52,11 +52,9 @@ mang_pkgs = c("BiocManager", "pacman", "easypackages")
 # install and load bioconductor packages 
 bio_pkgs = c("BiocManager", "ggbio", "biomaRt", "EnsDb.Hsapiens.v75", "cBioPortalData", "GenomicRanges", "GenomicFeatures", "TxDb.Hsapiens.UCSC.hg19.knownGene", "Homo.sapiens")
 
- if (!requireNamespace(bio_pkgs, quietly = TRUE))
-    BiocManager::install(bio_pkgs)
+invisible(lapply(pkgs, function(x) library(x, character.only=TRUE)))
 
-library(easypackages)
-libraries("ggbio", "biomaRt", "EnsDb.Hsapiens.v75", "renvcBioPortalData", "GenomicRanges", "GenomicFeatures", "TxDb.Hsapiens.UCSC.hg19.knownGene", "Homo.sapiens")
+BiocManager::install(bio_pkgs)
 
 # install and load CRAN packages
 if (!require("pacman")) install.packages("pacman")
