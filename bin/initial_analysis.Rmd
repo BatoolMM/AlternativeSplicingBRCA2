@@ -42,7 +42,7 @@ knitr::opts_chunk$set(
 
 
 
-```{r cars, include=FALSE}
+```{r lib-install, include=FALSE}
 
 # install and load  three package  managers
 mang_pkgs = c("BiocManager", "pacman", "easypackages")
@@ -52,7 +52,7 @@ mang_pkgs = c("BiocManager", "pacman", "easypackages")
 # install and load bioconductor packages 
 bio_pkgs = c("BiocManager", "ggbio", "biomaRt", "EnsDb.Hsapiens.v75", "cBioPortalData", "GenomicRanges", "GenomicFeatures", "TxDb.Hsapiens.UCSC.hg19.knownGene", "Homo.sapiens")
 
-invisible(lapply(pkgs, function(x) library(x, character.only=TRUE)))
+# invisible(lapply(pkgs, function(x) library(x, character.only=TRUE)))
 
 BiocManager::install(bio_pkgs)
 
@@ -70,6 +70,12 @@ showtext_auto()
 #initiate an environment for libs
 #renv::init()
 
+```
+
+```{r libs}
+library(EnsDb.Hsapiens.v75)
+library(biomaRt)
+library(cBioPortalData)
 ```
 
 
@@ -210,6 +216,8 @@ ggsave("exons.jpg", width = 70, height = 15, units = "cm")
 
 ```
 
+## Exons in BRCA2 gene
+
 ```{r fig1, echo=FALSE, fig.showtext=TRUE, fig.cap="\\label{fig:fig1}Mapping of the exons and introns in BRCA2 gene"}
 knitr::include_graphics("exons.jpg")
 ```
@@ -217,7 +225,7 @@ knitr::include_graphics("exons.jpg")
 
 
 ```{r clean-exons_df, echo=FALSE, results='asis'}
-# 4- furtherclaening and presenting of the data
+# 4- further claening and presenting of the data
 cleaned_exon <- exon %>%
   dplyr::select(c(
     exon_region_start__bp_,
@@ -286,6 +294,8 @@ studies %>%
 ggsave(here("docs/figs","cbioportal.jpg"))
 ```
 
+## Summary of all the Studies 
+
 ```{r fig2, out.width="100%", echo=FALSE, fig.showtext=TRUE, fig.cap="\\label{fig:fig2}The top 20 studies in cBioPortal according to the number of samplse"}
 knitr::include_graphics(here("docs/figs","cbioportal.jpg"))
 ```
@@ -345,5 +355,492 @@ df3 <- df %>%
     In_Frame_Ins = sum(mutation_type == 'In_Frame_Ins')
   ) %>%
   data_frame()
-`
+
+```
+
+
+```{r plot-splice, echo=FALSE, message=FALSE, fig.showtext=TRUE, warning=FALSE}
+# FIXME merge thio dot plot with the deletion plot
+df_studies_splice <- df3 %>%
+  dplyr::filter(Splice_Region != 0 | Splice_Site != 0) %>%
+  ggplot(aes(ref, Splice_Region, color = labels)) +
+  geom_point(
+    aes(ref, Splice_Region, colour = "#56B4E9"),
+    alpha = 0.5,
+    size = 5,
+    label = "Splice Region"
+  ) +
+  geom_point(
+    aes(ref, Splice_Site, colour = "red"),
+    alpha = 0.5,
+    size = 5,
+    label = "Splice Site"
+  ) +
+  coord_flip() +
+  labs(y = "No. of Samples with Splice Varients in BRCA2",
+       x = "",
+       color = "Type of Splice") +
+  scale_color_manual(values = c("red", "#56B4E9"),
+                     labels = c("Splice Site", "Splice Region")) +
+  scale_y_continuous(limits = c(1, 15),
+                     breaks = seq(1, 15, by = 1)) +
+  theme_minimal() +
+  theme(
+    # text = element_text(family = "Decima WE", color = "grey20"),
+    legend.position = "right",
+    panel.grid.minor = element_blank(),
+    text = element_text(color = "grey20"),
+    axis.text.x = element_text (size = 8),
+    axis.text.y = element_text(),
+    legend.title = element_text(size = 10),
+    axis.title.x = element_text(
+      # face = "bold",
+      size = 9,
+      margin = margin(7, 0, 0, 0)
+    ),
+  )
+ggsave(here("figs","splice.jpg"), width = 20, height = 15, units =  "cm")
+#family = "Arial Rounded MT Bold",
+```
+
+## Extract The Studies with BRCA2-Splicing 
+
+```{r fig3, out.width="100%", echo=FALSE, fig.showtext=TRUE, fig.cap="\\label{fig:fig3}The number of study which include BRCA2 splicing"}
+knitr::include_graphics(here("figs","splice.jpg"))
+```
+
+```{r plot-deletion, echo=FALSE, message=FALSE, fig.showtext=TRUE, warning=FALSE}
+# TODO remove this plot
+df_studies_deletion <- df3 %>%
+  dplyr::filter(Frame_Shift_Del != 0 | In_Frame_Del != 0) %>%
+  ggplot(aes(ref, Frame_Shift_Del, color = labels)) +
+  geom_point(
+    aes(ref, Frame_Shift_Del, colour = "#56B4E9"),
+    alpha = 0.5,
+    size = 5,
+    label = "Frame Shift Del"
+  ) +
+  geom_point(
+    aes(ref, In_Frame_Del, colour = "red"),
+    alpha = 0.5,
+    size = 5,
+    label = "InFrame Del"
+  ) +
+  coord_flip() +
+  labs(y = "No. of Samples with deletion in BRCA2",
+       x = "",
+       color = "Type of Deletion") +
+  scale_color_manual(values = c("red", "#56B4E9"),
+                     labels = c("InFrame Del", "Frame Shift Del")) +
+  scale_y_continuous(limits = c(1, 15),
+                     breaks = seq(1, 15, by = 1)) +
+  theme_minimal() +
+  theme(
+    # text = element_text(family = "Decima WE", color = "grey20"),
+    legend.position = "right",
+    panel.grid.minor = element_blank(),
+    text = element_text(color = "grey20"),
+    axis.text.x = element_text (size = 8),
+    axis.text.y = element_text(),
+    legend.title = element_text(size = 10),
+    axis.title.x = element_text(
+      # face = "bold",
+      size = 9,
+      margin = margin(7, 0, 0, 0)
+    ),
+  )
+ggsave(here("figs","deletion.jpg"), width = 20, height = 27, units =  "cm")
+```
+
+## Extract The Studies with BRCA2-Deletion 
+
+
+```{r fig4, out.width="100%", echo=FALSE, fig.cap="\\label{fig:fig4}The number of study which include BRCA2 deletion"}
+knitr::include_graphics(here("figs","deletion.jpg"))
+# attempt the same plot with cancer types 
+```
+
+# Mapping the splicing in BRCA2 in the samples to the exons
+
+```{r mapping-mutations-to-exons-plot, message=FALSE, warning=FALSE, include=FALSE}
+# TODO use walk:purr to generate all the figs in rmd rather than do them individually 
+df_splice <- df %>% 
+  dplyr::select(mutation_type, exon, ref, protein_change, variant_type, OncoKB, hgvsg, hgvsc) %>% 
+  dplyr::filter(mutation_type == "Splice_Region" | mutation_type == "Splice_Site")
+df_deletion <- df %>% 
+  dplyr::select(mutation_type, exon, ref, protein_change, variant_type, OncoKB, hgvsg, hgvsc) %>% 
+  dplyr::filter(mutation_type == "Frame_Shift_Del" | mutation_type == "In_Frame_Del")
+df_splice_DEL <- df_splice %>% 
+  dplyr::filter(variant_type == 'DEL') %>% 
+  mutate(hgvsg = str_remove_all(hgvsg, pattern = "\\d+:g\\.")) %>% 
+  mutate(hgvsg = str_remove_all(hgvsg, pattern = "del")) %>% 
+  separate(hgvsg, into = c('hgvsg_from', 'hgvsg_to'), sep = "_") %>% 
+  mutate(hgvsg_from = as.numeric(hgvsg_from)) %>% 
+  mutate(hgvsg_from = as.numeric(hgvsg_from)) %>% 
+  mutate(hgvsg_suffix = 'del')
+df_deletion_DEL <- df_deletion %>% 
+  mutate(hgvsg = str_remove_all(hgvsg, pattern = "\\d+:g\\.")) %>% 
+  mutate(hgvsg = str_remove_all(hgvsg, pattern = "del")) %>% 
+  separate(hgvsg, into = c('hgvsg_from', 'hgvsg_to'), sep = "_") %>% 
+  mutate(hgvsg_suffix = 'del') 
+# if hgvsg_to is NA, replace it with the same value of hgvsg_from.
+df_splice_DEL <- df_splice_DEL %>% 
+  mutate(hgvsg_to = ifelse(is.na(hgvsg_to), hgvsg_from, hgvsg_to))
+as.numeric(df_splice_DEL$hgvsg_from)/1000
+as.numeric(df_splice_DEL$hgvsg_to)/1000
+```
+
+
+```{r plot-all-mutations-exons, include=FALSE, fig.showtext=TRUE}
+d_s = data.frame(
+  x1 = (exon$exon_region_start__bp_),
+  x2 = (exon$exon_region_end__bp_),
+  t = paste0('Exon ' , seq(1, nrow(exon))),
+  labels = paste0('Exon ' , seq(1, nrow(exon)))
+)
+plot_splice <- ggplot() +
+  scale_x_continuous(name = "(bp)", scales::pretty_breaks(n = 8)) +
+  scale_y_continuous(name = "") +
+  geom_hline(yintercept = 1.6, size=20, alpha = 0.1) +
+  geom_rect(
+    data = d_s,
+    mapping = aes(
+      xmin = x1,
+      xmax = x2,
+      ymin = 1.5,
+      ymax = 1.8,
+      label = labels
+    ),
+    color = "black",
+    fill = "#56B4E9"
+  ) +
+   geom_label_repel(
+    data = d_s,
+    aes(
+      x = x1 + (x2 - x1) / 2,
+      y = 1.8,
+      label = labels,
+      ), size = 5,
+    force_pull   = 0, # do not pull toward data points
+    nudge_y      = 0.05,
+    direction    = "x",
+    angle        = 90,
+    vjust        = 0,
+    segment.size = 0.2,
+   ) +
+  ylim(1.5, 2.2) +
+  xlab("(kbp)") +
+  ylab("") +
+  annotate(
+    "segment",
+    x = (as.numeric(df_splice_DEL$hgvsg_from)),
+    xend = (as.numeric(df_splice_DEL$hgvsg_to)),
+    y = 1.5,
+    yend = 1.6,
+    colour = "red",
+    size = 1,
+    alpha = 0.6,
+    arrow = arrow()
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size = 30),
+    axis.ticks.length =  unit(10, "pt"),
+    text = element_text(size = 30),
+    panel.border = element_blank()
+  )
+ggsave(here("figs","exons_annotate.jpg"), width = 70, height = 19, units = "cm" )
+```
+
+## Position of the Splicing
+
+```{r fig5, out.width="100%", echo=FALSE, fig.cap="\\label{fig:fig5}Mapping of the splicing varients to the exons and introns of BRCA2 gene"}
+knitr::include_graphics(here("figs","exons_annotate.jpg"))
+```
+
+```{r plot2-all-mutations-exons, fig.showtext=TRUE, warning=FALSE, include=FALSE}
+# remove NA from the deleted seq
+df_deletion_DEL <- df_deletion_DEL %>% 
+  mutate(hgvsg_to = ifelse(is.na(hgvsg_to),hgvsg_from, hgvsg_to))
+# dataframe for exons
+d_d = data.frame(
+  x1 = (exon$exon_region_start__bp_),
+  x2 = (exon$exon_region_end__bp_),
+  t = paste0('Exon ' , seq(1, nrow(exon))),
+  labels = paste0('Exon ' , seq(1, nrow(exon)))
+)
+# First ensure that the dataframe for deleted seq is ordered by the start time
+df_deletion_DEL <- df_deletion_DEL[order(df_deletion_DEL$hgvsg_from),]
+# Now iterate through each row, calculating how many previous rows have
+# earlier starts but haven't yet finished when the current row starts.
+# Multiply this number by a small negative offset and add the 1.48 baseline value
+df_deletion_DEL$offset <- 1.48 - 0.03 * sapply(seq(nrow(df_deletion_DEL)), function(i) {
+   with(df_deletion_DEL[seq(i),], length(which(hgvsg_from < hgvsg_from[i] & hgvsg_to > hgvsg_to[i])))
+   })
+# making the plot 
+# Change the colour of the deletion type or splice
+plot_splice <- ggplot() +
+  scale_x_continuous(name = "(bp)", scales::pretty_breaks(n = 8)) +
+  scale_y_continuous(name = "") +
+  geom_hline(yintercept = 1.6,
+             size = 20,
+             alpha = 0.1) +
+  geom_rect(
+    data = d_d,
+    mapping = aes(
+      xmin = x1,
+      xmax = x2,
+      ymin = 1.5,
+      ymax = 1.8,
+      label = labels
+    ),
+    color = "black",
+    fill = "#56B4E9"
+  ) +
+  geom_segment(
+    data = df_deletion_DEL,
+    mapping = aes(
+    x = (as.numeric(df_deletion_DEL$hgvsg_from)),
+    xend = (as.numeric(df_deletion_DEL$hgvsg_to)),
+    y = offset,
+    yend = offset),
+    colour = "red",
+    size = 6
+    ) +
+  geom_label_repel(
+    data = d_d,
+    aes(
+       x = x1 + (x2 - x1) / 2,
+      y = 1.8,
+      label = labels,
+    ),
+    size = 6,
+    force_pull   = 0,
+    # do not pull toward data points
+    nudge_y      = 0.05,
+    direction    = "x",
+    angle        = 90,
+    vjust        = 0,
+    segment.size = 0.5,
+  ) +
+  ylim(1.38, 2.2) +
+  xlab("(kbp)") +
+  ylab("") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size = 30),
+    axis.ticks.length =  unit(10, "pt"),
+    # axis.text.x = element_text (size = 8),
+    text = element_text(size = 30), 
+    panel.border = element_blank()
+  )
+ggsave(
+  here("figs","exons_annotate_deletion_1.jpg"),
+  width = 70,
+  height = 14,
+  units = "cm"
+)
+```
+
+## Position of the Deletion
+
+```{r fig6, out.width="100%", echo=FALSE, fig.showtext=TRUE, fig.cap="\\label{fig:fig6}Mapping of the exons and introns in BRCA2 gene"}
+knitr::include_graphics(here("figs","exons_annotate_deletion_1.jpg"))
+```
+## Deletion in Exon 5 
+
+```{r plot3-all-mutations-exons, echo=FALSE, message=FALSE, warning=FALSE, out.width="100%"}
+df_deletion_DEL$offset <-
+  1.45 - 0.03 * sapply(seq(nrow(df_deletion_DEL)), function(i) {
+    with(df_deletion_DEL[seq(i), ], length(which(
+      hgvsg_from < hgvsg_from[i] & hgvsg_to > hgvsg_to[i]
+    )))
+  })
+df_deletion_DEL <- df_deletion_DEL %>% 
+  mutate(OncoKB = str_replace_all(OncoKB, pattern = "_", replacement = " "))
+plot_splice <- ggplot() +
+  scale_x_continuous(name = "(bp)", scales::pretty_breaks(n = 8)) +
+  scale_y_continuous(name = "") +
+  geom_hline(yintercept = 1.6,
+             size = 20,
+             alpha = 0.1) +
+  geom_rect(
+    data = d_d,
+    mapping = aes(
+      xmin = x1,
+      xmax = x2,
+      ymin = 1.5,
+      ymax = 1.8,
+    ),
+    color = "black",
+    fill = "#56B4E9"
+  ) +
+  geom_label_repel(
+    data = subset(d_d, d_d$labels == "Exon 5"),
+    aes(
+      x = x1 + (x2 - x1) / 2,
+      y = 1.8,
+      label = labels,
+    ),
+    size = 10,
+    force_pull   = 0,
+    nudge_y      = 0.05,
+    direction    = "x",
+    angle        = 90,
+    vjust        = 0,
+    segment.size = 0.5,
+  ) +
+  geom_segment(
+    data = df_deletion_DEL,
+    mapping = aes(
+      x = (as.numeric(df_deletion_DEL$hgvsg_from)),
+      xend = (as.numeric(df_deletion_DEL$hgvsg_to)),
+      y = offset,
+      yend = offset,
+      # label = OncoKB
+    ),
+    colour = "red",
+    size = 6
+  ) +
+  geom_text_repel(
+    data = df_deletion_DEL %>% 
+    dplyr::filter(hgvsg_from > 32900379 & hgvsg_to < 32900419),
+    aes(
+      x = as.numeric(hgvsg_from) + (as.numeric(hgvsg_to) - as.numeric(hgvsg_from)) / 2,
+      y = offset,
+      label = OncoKB,
+    ),
+    size = 10,
+    force_pull   = 0,
+    direction    = "y",
+    box.padding = 3.5,
+    # angle        = 0,
+    # vjust        = 0,
+    # segment.size = 0.5,
+    # min.segment.length = 0.5,
+    # nudge_x      = 0.1,
+  ) +
+  coord_cartesian(xlim = c(32900379, 32900419)) +
+  ylim(1.0, 2.2) +
+  xlab("(kbp)") +
+  ylab("") +
+    theme_bw() +
+  theme(
+    legend.position = "none",
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size = 30),
+    axis.ticks.length =  unit(10, "pt"),
+    text = element_text(size = 30),
+    panel.border = element_blank()
+  )
+ggsave(
+  filename = "figs/exons_annotate_deletion_zoom.jpg",
+  width = 70,
+  height = 20,
+  units = "cm"
+)
+knitr::include_graphics("figs/exons_annotate_deletion_zoom.jpg")
+```
+## Deletion in Exon 10 
+
+```{r plot4-all-mutations-exons, echo=FALSE, message=FALSE, warning=FALSE, out.width="100%"}
+ata  <-  df_deletion_DEL %>% 
+      distinct(hgvsg_from, hgvsg_to, .keep_all = TRUE) %>% 
+      dplyr::filter(hgvsg_from > 32910402 & hgvsg_to < 32915333) %>% 
+      dplyr::filter(!grepl("ins", hgvsg_to)) %>% 
+      dplyr::filter(!grepl("NA", OncoKB)) %>% 
+      dplyr::filter(as.numeric(hgvsg_to) - as.numeric(hgvsg_from) > 20)
+ # ata$offset[1]=1.32
+plot_splice <- ggplot() +
+  scale_x_continuous(name = "(bp)", scales::pretty_breaks(n = 8)) +
+  scale_y_continuous(name = "") +
+  geom_hline(yintercept = 1.6,
+             size = 20,
+             alpha = 0.1) +
+  geom_rect(
+    data = d_d,
+    mapping = aes(
+      xmin = x1,
+      xmax = x2,
+      ymin = 1.5,
+      ymax = 1.8,
+    ),
+    color = "black",
+    fill = "#56B4E9"
+  ) +
+  geom_text_repel(
+    data = subset(d_d, d_d$labels == "Exon 10"),
+    aes(
+      x = x1 + (x2 - x1) / 2,
+      y = 1.6,
+      label = labels,
+    ),
+    size = 15,
+  ) +
+  geom_segment(
+    data = ata,
+    mapping = aes(
+      x = (as.numeric(ata$hgvsg_from)),
+      xend = (as.numeric(ata$hgvsg_to)),
+      y = offset,
+      yend = offset,
+    ),
+    colour = "red",
+    size = 6
+  ) +
+  geom_text_repel(
+    data = ata,
+    aes(
+      x = as.numeric(hgvsg_from) + (as.numeric(hgvsg_to) - as.numeric(hgvsg_from)) / 2,
+      y = offset - 0.02,
+      label = protein_change,
+    ),
+    size = 10,
+    force_pull   = 0,
+    direction    = "x",
+    box.padding = 3.5,
+    nudge_y = -0.5,
+    hjust = 0
+    # max.overlaps = Inf,
+  ) +
+  coord_cartesian(xlim = c(32910402, 32915333)) +
+  ylim(1.0, 2.2) +
+  xlab("(kbp)") +
+  ylab("") +
+    theme_bw() +
+  theme(
+    legend.position = "none",
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size = 30),
+    axis.ticks.length =  unit(10, "pt"),
+    text = element_text(size = 30),
+    panel.border = element_blank()
+  )
+ggsave(
+  filename = "figs/exons10_annotate_deletion_zoom.jpg",
+  width = 70,
+  height = 19,
+  units = "cm"
+)
+knitr::include_graphics("figs/exons10_annotate_deletion_zoom.jpg")
 ```
